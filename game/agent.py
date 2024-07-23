@@ -1,3 +1,5 @@
+import os
+
 import torch
 import random
 import numpy as np
@@ -109,6 +111,16 @@ class Agent:
 
         return final_move
 
+    def load(self, file_name='model.pth'):
+        model_folder_path = './model'
+        file_path = os.path.join(model_folder_path, file_name)
+        if os.path.exists(file_path):
+            self.model.load_state_dict(torch.load(file_path))
+            print("Model loaded.")
+
+    def save_data(self, n_games, record):
+        pass
+
 
 def train():
     plot_scores = []
@@ -116,6 +128,7 @@ def train():
     total_score = 0
     record = 0
     agent = Agent()
+    agent.load()
     game = Game()
 
     while True:
@@ -147,7 +160,11 @@ def train():
                 agent.model.save()
                 # agent.model.save
 
-            print('Game: ', agent.n_games, 'Score: ', score, 'Record: ', record, "Reward: ", reward)
+            message = '#: ', agent.n_games, 'Score: ', score, 'Record: ', record
+            print(message)
+            game.message = message
+            agent.save_data(agent.n_games, record)
+
 
 
 if __name__ == '__main__':
