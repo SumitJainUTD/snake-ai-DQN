@@ -21,8 +21,8 @@ class Snake():
         self.length = length
         self.parent_screen = parent_screen
         self.block = pygame.image.load("resources/block.jpg")
-        self.x = [BLOCK_WIDTH*4] * self.length
-        self.y = [BLOCK_WIDTH*4] * self.length
+        self.x = [BLOCK_WIDTH * 4] * self.length
+        self.y = [BLOCK_WIDTH * 4] * self.length
         self.direction = "right"
 
     def draw(self):
@@ -94,7 +94,7 @@ class Apple:
         self.parent_screen.blit(self.apple_img, (self.x, self.y))
 
     def move(self, snake):
-        while True: # make sure new food is not getting created over snake body
+        while True:  # make sure new food is not getting created over snake body
             x = random.randint(0, 10) * BLOCK_WIDTH
             y = random.randint(0, 10) * BLOCK_WIDTH
             clean = True
@@ -108,11 +108,10 @@ class Apple:
                 return
 
 
-
 class Game():
     def __init__(self):
         pygame.init()
-        pygame.display.set_caption("Snake Game - Sumit")
+        pygame.display.set_caption("Snake Game - AI - Deep Q Learning")
         self.SCREEN_UPDATE = pygame.USEREVENT
         pygame.time.set_timer(self.SCREEN_UPDATE, 1)
         self.surface = pygame.display.set_mode((SCREEN_SIZE, SCREEN_SIZE))
@@ -125,7 +124,7 @@ class Game():
         self.reward = 0
         self.iterations_without_rewards = 0
         self.game_over = False
-        self.message = 'sample'
+        self.message = ''
 
         # pygame.mixer.init()
         self.play_background_music()
@@ -135,27 +134,31 @@ class Game():
 
     def play_background_music(self):
         pass
-#         pygame.mixer.music.load('resources/bg_music_1.mp3')
-#         pygame.mixer.music.play(-1, 0)
+
+    #         pygame.mixer.music.load('resources/bg_music_1.mp3')
+    #         pygame.mixer.music.play(-1, 0)
 
     def play_sound(self, sound_name):
         pass
         # if sound_name == "crash":
-#             sound = pygame.mixer.Sound("resources/crash.mp3")
-#         elif sound_name == 'ding':
-#             sound = pygame.mixer.Sound("resources/ding.mp3")
 
-#         pygame.mixer.Sound.play(sound)
+    #             sound = pygame.mixer.Sound("resources/crash.mp3")
+    #         elif sound_name == 'ding':
+    #             sound = pygame.mixer.Sound("resources/ding.mp3")
+
+    #         pygame.mixer.Sound.play(sound)
 
     def display_score(self):
-        font = pygame.font.SysFont('arial', 30)
-        score = font.render(f"{self.score}", True, (200, 200, 200))
-        self.surface.blit(score, (450, 10))
+        pass
+        font = pygame.font.SysFont('arial', 20)
+        msg = "Score: " + str(self.score)
+        score = font.render(f"{msg}", True, (200, 200, 200))
+        self.surface.blit(score, (650, 10))
 
     def display_message(self, message):
         font = pygame.font.SysFont('arial', 20)
         score = font.render(f"{message}", True, (200, 200, 200))
-        self.surface.blit(score, (400, 400))
+        self.surface.blit(score, (100, 10))
 
     def is_collision(self, point=None):
         is_head = False
@@ -192,7 +195,7 @@ class Game():
         self.apple.draw()
         self.display_score()
         self.display_message(self.message)
-        self.iterations_without_rewards +=1
+        self.iterations_without_rewards += 1
         self.reward = 0
 
         # time.sleep(0.15)
@@ -262,6 +265,9 @@ class Game():
                 self.snake.move_up()
 
         for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
             if event.type == self.SCREEN_UPDATE:
                 self.play()
                 pygame.display.update()

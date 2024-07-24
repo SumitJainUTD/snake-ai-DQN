@@ -1,3 +1,4 @@
+import json
 import os
 
 import torch
@@ -18,10 +19,14 @@ class Agent:
     def __init__(self):
         self.n_games = 0
         self.epsilon = 0  # random
-        self.gamma = 0  # discount rate
+        self.gamma = 0.9  # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)
         self.model = Linear_QNet(11, 512, 3)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
+        self.data_file = 'model/data.json'
+        self.record = 0
+        self.avg = 0
+        self.total_eats=0
         # model, trainer
 
         pass
@@ -87,8 +92,7 @@ class Agent:
         self.trainer.train_step(state, action, reward, next_state, done)
 
     def train_long_memory(self):
-        print('self.memory)', len(self.memory))
-        if len(self.memory)>BATCH_SIZE:
+        if len(self.memory) > BATCH_SIZE:
             mini_sample = random.sample(self.memory, BATCH_SIZE)
         else:
             mini_sample = self.memory
@@ -117,16 +121,33 @@ class Agent:
         if os.path.exists(file_path):
             self.model.load_state_dict(torch.load(file_path))
             print("Model loaded.")
+            self.retrieve_data()
 
-    def save_data(self, n_games, record):
-        pass
+
+
+    def save_data(self, n_games, record, score):
+        self.total_eats += score
+        self.avg = round((self.total_eats / n_games), 2)
+        data = {'episodes': n_games, 'record': record, 'avg': self.avg}
+        with open(self.data_file, 'w') as file:
+            json.dump(data, file, indent=4)
+
+    def retrieve_data(self):
+        data = None
+        with open(self.data_file, 'r') as file:
+            data = json.load(file)
+
+        if data is not None:
+            self.n_games = data['episodes']
+            self.record = data['record']
+            self.avg = data['avg']
+            self.total_eats = self.n_games * self.avg
 
 
 def train():
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
-    record = 0
     agent = Agent()
     agent.load()
     game = Game()
@@ -155,16 +176,15 @@ def train():
             agent.n_games += 1
             agent.train_long_memory()
 
-            if score > record:
-                record = score
+            if score > agent.record:
+                agent.record = score
                 agent.model.save()
-                # agent.model.save
 
-            message = '#: ', agent.n_games, 'Score: ', score, 'Record: ', record
+            message = "Episodes: " + str(agent.n_games) \
+                      + "    Record: " + str(agent.record)
             print(message)
             game.message = message
-            agent.save_data(agent.n_games, record)
-
+            agent.save_data(agent.n_games, agent.record, score)
 
 
 if __name__ == '__main__':
