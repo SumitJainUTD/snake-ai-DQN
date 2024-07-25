@@ -9,9 +9,9 @@ from collections import deque
 from game.model import Linear_QNet, QTrainer
 from game.snake import Game
 
-MAX_MEMORY = 100_000
-BATCH_SIZE = 1000
-LR = 0.001
+MAX_MEMORY = 20_000
+BATCH_SIZE = 64
+LR = 0.0005
 BLOCK_WIDTH = 40
 
 
@@ -19,7 +19,7 @@ class Agent:
     def __init__(self):
         self.n_games = 0
         self.epsilon = 1.0  # exploration rate
-        self.epsilon_decay = 0.99
+        self.epsilon_decay = 0.995
         self.epsilon_min = 0.01
         self.gamma = 0.95  # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)
@@ -136,7 +136,7 @@ class Agent:
             print("Model loaded.")
             self.retrieve_data()
 
-    def save_data(self, n_games, record, score, file_name='data.json'):
+    def save_data(self, n_games, record, score, epsilon, file_name='data.json'):
 
         if not os.path.exists(self.model_folder_path):
             os.makedirs(self.model_folder_path)
@@ -144,7 +144,7 @@ class Agent:
         complete_path = os.path.join(self.model_folder_path, file_name)
         self.total_eats += score
         self.avg = round((self.total_eats / n_games), 2)
-        data = {'episodes': n_games, 'record': record, 'avg': self.avg}
+        data = {'episodes': n_games, 'record': record, 'avg': self.avg, 'epsilon': epsilon}
         with open(complete_path, 'w') as file:
             json.dump(data, file, indent=4)
 
@@ -159,6 +159,7 @@ class Agent:
                 self.n_games = data['episodes']
                 self.record = data['record']
                 self.avg = data['avg']
+                self.epsilon = data['epsilon']
                 self.total_eats = self.n_games * self.avg
 
 
@@ -203,9 +204,9 @@ def train():
 
             message = "Episodes: " + str(agent.n_games) \
                       + "    Record: " + str(agent.record)
-            print(message)
+            # print(message)
             game.message = message
-            agent.save_data(agent.n_games, agent.record, score)
+            agent.save_data(agent.n_games, agent.record, score, agent.epsilon)
 
 
 if __name__ == '__main__':

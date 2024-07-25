@@ -1,12 +1,14 @@
 import random
 import time
+from collections import deque
+
 import numpy as np
 
 import pygame
 from pygame.locals import *
 
 BLOCK_WIDTH = 40
-SCREEN_SIZE = 800
+SCREEN_SIZE = 600
 
 
 # reset
@@ -125,6 +127,8 @@ class Game():
         self.iterations_without_rewards = 0
         self.game_over = False
         self.message = ''
+        self.position_history = deque(maxlen=50)
+        self.loop_detect_counter = 0
 
         # pygame.mixer.init()
         self.play_background_music()
@@ -153,7 +157,7 @@ class Game():
         font = pygame.font.SysFont('arial', 20)
         msg = "Score: " + str(self.score)
         score = font.render(f"{msg}", True, (200, 200, 200))
-        self.surface.blit(score, (650, 10))
+        self.surface.blit(score, (380, 10))
 
     def display_message(self, message):
         font = pygame.font.SysFont('arial', 20)
@@ -209,13 +213,25 @@ class Game():
             self.reward = 10
 
         if self.is_collision():
-            self.reward -= 50
+            self.reward = -10
             self.game_over = True
 
         if self.iterations_without_rewards > 100 * self.snake.length:
-            self.reward -= 10
+            self.reward = -10
             self.game_over = True
             print("Iterations exceeded: Game Over")
+
+        # Check for loops by tracking positions
+        if (self.snake.x[0], self.snake.y[0]) in self.position_history:
+            self.loop_detect_counter += 1
+            if(self.loop_detect_counter>50):
+                self.reward = -10
+                self.game_over = True
+                self.loop_detect_counter = 0
+                print("loop detected")
+        self.position_history.append((self.snake.x[0], self.snake.y[0]))
+
+
 
     def render_background(self):
         bg = pygame.image.load("resources/background.jpg")
@@ -227,6 +243,8 @@ class Game():
         self.score = 0
         self.game_over = False
         self.iterations_without_rewards = 0
+        self.position_history.clear()
+        self.loop_detect_counter = 0
 
     def get_next_direction(self, action):
         # [straight, right, left]
