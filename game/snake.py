@@ -209,11 +209,11 @@ class Game():
             self.reward = 10
 
         if self.is_collision():
-            self.reward -= 50
+            self.reward = -10
             self.game_over = True
 
         if self.iterations_without_rewards > 100 * self.snake.length:
-            self.reward -= 10
+            self.reward = -10
             self.game_over = True
             print("Iterations exceeded: Game Over")
 
