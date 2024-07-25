@@ -9,10 +9,11 @@ from collections import deque
 from game.model import Linear_QNet, QTrainer
 from game.snake import Game
 
-MAX_MEMORY = 100_000
+MAX_MEMORY = 20_000
 BATCH_SIZE = 1000
 LR = 0.001
 BLOCK_WIDTH = 40
+
 
 
 class Agent:
@@ -203,7 +204,7 @@ def train():
 
             message = "Episodes: " + str(agent.n_games) \
                       + "    Record: " + str(agent.record)
-            print(message)
+            # print(message)
             game.message = message
             agent.save_data(agent.n_games, agent.record, score)
 
