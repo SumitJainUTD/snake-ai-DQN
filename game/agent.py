@@ -1,3 +1,6 @@
+import json
+import os
+
 import torch
 import random
 import numpy as np
@@ -15,12 +18,23 @@ BLOCK_WIDTH = 40
 class Agent:
     def __init__(self):
         self.n_games = 0
-        self.epsilon = 0  # random
-        self.gamma = 0  # discount rate
+        self.epsilon = 1.0  # exploration rate
+        self.epsilon_decay = 0.99
+        self.epsilon_min = 0.01
+        self.gamma = 0.95  # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)
         self.model = Linear_QNet(11, 512, 3)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
+        self.data_file = 'data.json'
+        self.record = 0
+        self.avg = 0
+        self.total_eats = 0
+        self.model_folder_path = './model'
         # model, trainer
+
+        self.random_count=0
+        self.training_count=0
+        self.total_decisions=0
 
         pass
 
@@ -85,8 +99,7 @@ class Agent:
         self.trainer.train_step(state, action, reward, next_state, done)
 
     def train_long_memory(self):
-        print('self.memory)', len(self.memory))
-        if len(self.memory)>BATCH_SIZE:
+        if len(self.memory) > BATCH_SIZE:
             mini_sample = random.sample(self.memory, BATCH_SIZE)
         else:
             mini_sample = self.memory
@@ -96,26 +109,65 @@ class Agent:
 
     def get_action(self, state):
         # random moves: trade off exploration / exploitation
-        self.epsilon = 80 - self.n_games
+        self.total_decisions += 1
         final_move = [0, 0, 0]
-        if random.randint(0, 200) < self.epsilon:
+        if np.random.rand() <= self.epsilon:
+            self.random_count +=1
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
+            self.training_count +=1
             state0 = torch.tensor(state, dtype=torch.float)
             prediction = self.model(state0)
             move = torch.argmax(prediction).item()
             final_move[move] = 1
 
+        if self.total_decisions % 1000 ==0:
+            print("random ", self.random_count)
+            print("training ", self.training_count)
+            print("epsilon " , self.epsilon)
         return final_move
+
+    def load(self, file_name='model.pth'):
+
+        file_path = os.path.join(self.model_folder_path, file_name)
+        if os.path.exists(file_path):
+            self.model.load_state_dict(torch.load(file_path))
+            print("Model loaded.")
+            self.retrieve_data()
+
+    def save_data(self, n_games, record, score, file_name='data.json'):
+
+        if not os.path.exists(self.model_folder_path):
+            os.makedirs(self.model_folder_path)
+
+        complete_path = os.path.join(self.model_folder_path, file_name)
+        self.total_eats += score
+        self.avg = round((self.total_eats / n_games), 2)
+        data = {'episodes': n_games, 'record': record, 'avg': self.avg}
+        with open(complete_path, 'w') as file:
+            json.dump(data, file, indent=4)
+
+    def retrieve_data(self):
+        data = None
+        model_data_path = os.path.join(self.model_folder_path, self.data_file)
+        if os.path.exists(model_data_path):
+            with open(model_data_path, 'r') as file:
+                data = json.load(file)
+
+            if data is not None:
+                self.n_games = data['episodes']
+                self.record = data['record']
+                self.avg = data['avg']
+                self.total_eats = self.n_games * self.avg
 
 
 def train():
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
-    record = 0
     agent = Agent()
+    agent.load()
     game = Game()
 
     while True:
@@ -136,18 +188,24 @@ def train():
         # remember
         agent.remember(state_old, final_move, reward, state_new, done)
 
+
         if done:
             # train long term memory (Experience Replay)
             game.reset()
             agent.n_games += 1
             agent.train_long_memory()
+            if agent.epsilon > agent.epsilon_min:
+                agent.epsilon *= agent.epsilon_decay
 
-            if score > record:
-                record = score
+            if score > agent.record:
+                agent.record = score
                 agent.model.save()
-                # agent.model.save
 
-            print('Game: ', agent.n_games, 'Score: ', score, 'Record: ', record, "Reward: ", reward)
+            message = "Episodes: " + str(agent.n_games) \
+                      + "    Record: " + str(agent.record)
+            print(message)
+            game.message = message
+            agent.save_data(agent.n_games, agent.record, score)
 
 
 if __name__ == '__main__':
