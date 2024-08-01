@@ -7,8 +7,7 @@ import numpy as np
 import pygame
 from pygame.locals import *
 
-BLOCK_WIDTH = 40
-SCREEN_SIZE = 600
+
 
 
 # reset
@@ -17,14 +16,19 @@ SCREEN_SIZE = 600
 # game_iteration
 # is_collision
 
+class Base():
+    def __init__(self):
+        self.BLOCK_WIDTH = 40
+        self.SCREEN_SIZE = 600
 
-class Snake():
+class Snake(Base):
     def __init__(self, parent_screen, length=1):
+        super().__init__()
         self.length = length
         self.parent_screen = parent_screen
         self.block = pygame.image.load("resources/block.jpg")
-        self.x = [BLOCK_WIDTH * 4] * self.length
-        self.y = [BLOCK_WIDTH * 4] * self.length
+        self.x = [self.BLOCK_WIDTH * 4] * self.length
+        self.y = [self.BLOCK_WIDTH * 4] * self.length
         self.direction = "right"
 
     def draw(self):
@@ -61,13 +65,13 @@ class Snake():
             self.y[i] = self.y[i - 1]
 
         if self.direction == "right":
-            self.x[0] += BLOCK_WIDTH
+            self.x[0] += self.BLOCK_WIDTH
         if self.direction == "left":
-            self.x[0] -= BLOCK_WIDTH
+            self.x[0] -= self.BLOCK_WIDTH
         if self.direction == "down":
-            self.y[0] += BLOCK_WIDTH
+            self.y[0] += self.BLOCK_WIDTH
         if self.direction == "up":
-            self.y[0] -= BLOCK_WIDTH
+            self.y[0] -= self.BLOCK_WIDTH
 
         # if self.x[0] >= SCREEN_SIZE:
         #     self.x[0] = 0
@@ -85,20 +89,21 @@ class Snake():
         # print(str(self.x) + " " + str(self.y))
 
 
-class Apple:
+class Apple(Base):
     def __init__(self, parent_screen):
+        super().__init__()
         self.parent_screen = parent_screen
         self.apple_img = pygame.image.load("resources/apple.jpg")
-        self.x = random.randint(0, 10) * BLOCK_WIDTH
-        self.y = random.randint(0, 10) * BLOCK_WIDTH
+        self.x = random.randint(0, 10) * self.BLOCK_WIDTH
+        self.y = random.randint(0, 10) * self.BLOCK_WIDTH
 
     def draw(self):
         self.parent_screen.blit(self.apple_img, (self.x, self.y))
 
     def move(self, snake):
         while True:  # make sure new food is not getting created over snake body
-            x = random.randint(0, 10) * BLOCK_WIDTH
-            y = random.randint(0, 10) * BLOCK_WIDTH
+            x = random.randint(0, 10) * self.BLOCK_WIDTH
+            y = random.randint(0, 10) * self.BLOCK_WIDTH
             clean = True
             for i in range(0, snake.length):
                 if x == snake.x[i] and y == snake.y[i]:
@@ -110,13 +115,14 @@ class Apple:
                 return
 
 
-class Game():
+class Game(Base):
     def __init__(self):
+        super().__init__()
         pygame.init()
         pygame.display.set_caption("Snake Game - AI - Deep Q Learning")
         self.SCREEN_UPDATE = pygame.USEREVENT
         pygame.time.set_timer(self.SCREEN_UPDATE, 1)
-        self.surface = pygame.display.set_mode((SCREEN_SIZE, SCREEN_SIZE))
+        self.surface = pygame.display.set_mode((self.SCREEN_SIZE, self.SCREEN_SIZE))
         self.surface.fill((58, 59, 36))
         self.snake = Snake(self.surface, 1)
         self.snake.draw()
@@ -185,8 +191,8 @@ class Game():
                     self.play_sound('crash')
                     return True
 
-        if point_x > (SCREEN_SIZE - BLOCK_WIDTH) \
-                or point_y > (SCREEN_SIZE - BLOCK_WIDTH) \
+        if point_x > (self.SCREEN_SIZE - self.BLOCK_WIDTH) \
+                or point_y > (self.SCREEN_SIZE - self.BLOCK_WIDTH) \
                 or point_x < 0 \
                 or point_y < 0:
             self.play_sound('crash')
