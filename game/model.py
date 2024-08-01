@@ -26,11 +26,13 @@ class Linear_QNet(nn.Module):
         torch.save(self.state_dict(), file_name)
 
 
+
 class QTrainer:
-    def __init__(self, model, lr, gamma):
+    def __init__(self, model, target_model, lr, gamma):
         self.lr = lr
         self.gamma = gamma
         self.model = model
+        self.target_model = target_model
         self.optimizer = optim.Adam(model.parameters(), lr=self.lr)
         self.criterion = nn.MSELoss()
 
@@ -60,7 +62,7 @@ class QTrainer:
         for idx in range(len(done)):
             Q_new = reward[idx]
             if not done[idx]:
-                Q_new = reward[idx] + self.gamma * torch.max(self.model(next_state[idx]))
+                Q_new = reward[idx] + self.gamma * torch.max(self.target_model(next_state[idx]))
 
             target[idx][torch.argmax(action[idx]).item()] = Q_new
 

@@ -9,9 +9,9 @@ from collections import deque
 from game.model import Linear_QNet, QTrainer
 from game.snake import Game
 
-MAX_MEMORY = 20_000
+MAX_MEMORY = 100_000
 BATCH_SIZE = 64
-LR = 0.0005
+LR = 0.0001
 BLOCK_WIDTH = 40
 
 
@@ -24,7 +24,8 @@ class Agent:
         self.gamma = 0.95  # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)
         self.model = Linear_QNet(11, 512, 3)
-        self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
+        self.target_model = Linear_QNet(11, 512, 3)
+        self.trainer = QTrainer(self.model, self.target_model, LR, self.gamma)
         self.data_file = 'data.json'
         self.record = 0
         self.avg = 0
@@ -197,6 +198,8 @@ def train():
             agent.train_long_memory()
             if agent.epsilon > agent.epsilon_min:
                 agent.epsilon *= agent.epsilon_decay
+
+            agent.target_model.load_state_dict(agent.model.state_dict())
 
             if score > agent.record:
                 agent.record = score
