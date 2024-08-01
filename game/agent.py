@@ -9,9 +9,11 @@ from collections import deque
 from game.model import Linear_QNet, QTrainer
 from game.snake import Game
 
-MAX_MEMORY = 100_000
+MAX_MEMORY = 150_000
+LEARNING_STARTS = 30000
 BATCH_SIZE = 64
 LR = 0.0001
+TARGET_UPDATE_INTERVAL = 4000
 BLOCK_WIDTH = 40
 
 
@@ -31,11 +33,12 @@ class Agent:
         self.avg = 0
         self.total_eats = 0
         self.model_folder_path = './model'
+        self.t_step = 0
         # model, trainer
 
-        self.random_count=0
-        self.training_count=0
-        self.total_decisions=0
+        self.random_count = 0
+        self.training_count = 0
+        self.total_decisions = 0
 
         pass
 
@@ -99,34 +102,35 @@ class Agent:
         # print("state", state, "action", action, "reward", reward, "next_state", next_state, "GO", done)
         self.trainer.train_step(state, action, reward, next_state, done)
 
-    def train_long_memory(self):
-        if len(self.memory) > BATCH_SIZE:
+    def train_memory(self):
+        if len(self.memory) > LEARNING_STARTS:
             mini_sample = random.sample(self.memory, BATCH_SIZE)
-        else:
-            mini_sample = self.memory
-
-        for state, action, reward, next_state, done in mini_sample:
-            self.trainer.train_step(state, action, reward, next_state, done)
+            print("learning starts")
+            # states, actions, rewards, next_states, dones = zip(*mini_sample)
+            # self.trainer.train_step(states, actions, rewards, next_states, dones)
+            for state, action, reward, next_state, done in mini_sample:
+                self.trainer.train_step(state, action, reward, next_state, done)
 
     def get_action(self, state):
         # random moves: trade off exploration / exploitation
         self.total_decisions += 1
         final_move = [0, 0, 0]
         if np.random.rand() <= self.epsilon:
-            self.random_count +=1
+            self.random_count += 1
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
-            self.training_count +=1
+            self.training_count += 1
             state0 = torch.tensor(state, dtype=torch.float)
             prediction = self.model(state0)
             move = torch.argmax(prediction).item()
             final_move[move] = 1
 
-        if self.total_decisions % 1000 ==0:
-            print("random ", self.random_count)
-            print("training ", self.training_count)
-            print("epsilon " , self.epsilon)
+        if self.total_decisions % 1000 == 0:
+            # print("random ", self.random_count)
+            # print("training ", self.training_count)
+            print("epsilon ", self.epsilon)
+            print(len(self.memory))
         return final_move
 
     def load(self, file_name='model.pth'):
@@ -165,9 +169,6 @@ class Agent:
 
 
 def train():
-    plot_scores = []
-    plot_mean_scores = []
-    total_score = 0
     agent = Agent()
     agent.load()
     game = Game()
@@ -184,22 +185,25 @@ def train():
         reward, done, score = game.run_step(final_move)
         state_new = agent.get_state(game)
 
-        # train short memory
-        agent.train_short_memory(state_old, final_move, reward, state_new, done)
-
         # remember
         agent.remember(state_old, final_move, reward, state_new, done)
 
+        # train after every 4 steps
+        if agent.t_step % 4 == 0:
+            agent.train_memory()
+
+        # update target model
+        agent.t_step = (agent.t_step + 1) % 5000
+        if agent.t_step == 0:
+            print("updating target model")
+            agent.target_model.load_state_dict(agent.model.state_dict())
 
         if done:
             # train long term memory (Experience Replay)
             game.reset()
             agent.n_games += 1
-            agent.train_long_memory()
-            if agent.epsilon > agent.epsilon_min:
+            if len(agent.memory) > LEARNING_STARTS and agent.epsilon > agent.epsilon_min:
                 agent.epsilon *= agent.epsilon_decay
-
-            agent.target_model.load_state_dict(agent.model.state_dict())
 
             if score > agent.record:
                 agent.record = score
