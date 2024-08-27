@@ -1,28 +1,25 @@
 import random
+import sys
 from collections import deque
-import numpy as np
 import pygame
-
 
 class Base():
     def __init__(self):
-        self.BLOCK_WIDTH = 20
+        self.BLOCK_WIDTH = 40
         self.SCREEN_SIZE = 600
-        self.apple_location_multiplier=self.SCREEN_SIZE/self.BLOCK_WIDTH
-
 
 class Snake(Base):
     def __init__(self, parent_screen, length=1):
         super().__init__()
         self.length = length
         self.parent_screen = parent_screen
-        self.block = pygame.image.load("resources/block20.jpg")
-        self.x = [self.BLOCK_WIDTH * 2] * self.length
-        self.y = [self.BLOCK_WIDTH * 2] * self.length
+        self.block = pygame.image.load("resources/block.jpg")
+        self.x = [self.BLOCK_WIDTH * 4] * self.length
+        self.y = [self.BLOCK_WIDTH * 4] * self.length
         self.direction = "right"
 
     def draw(self):
-        self.parent_screen.fill((1, 50, 32))
+        self.parent_screen.fill((58, 59, 36))
         for i in range(self.length):
             self.parent_screen.blit(self.block, (self.x[i], self.y[i]))
 
@@ -30,22 +27,6 @@ class Snake(Base):
         self.length += 1
         self.x.append(-1)
         self.y.append(-1)
-
-    def move_left(self):
-        if self.direction != "right":
-            self.direction = "left"
-
-    def move_right(self):
-        if self.direction != "left":
-            self.direction = "right"
-
-    def move_up(self):
-        if self.direction != "down":
-            self.direction = "up"
-
-    def move_down(self):
-        if self.direction != "up":
-            self.direction = "down"
 
     def move(self):
 
@@ -62,18 +43,6 @@ class Snake(Base):
         if self.direction == "up":
             self.y[0] -= self.BLOCK_WIDTH
 
-        # if self.x[0] >= self.SCREEN_SIZE:
-        #     self.x[0] = 0
-        #
-        # if self.x[0] < 0:
-        #     self.x[0] = self.SCREEN_SIZE
-        #
-        # if self.y[0] >= self.SCREEN_SIZE:
-        #     self.y[0] = 0
-        #
-        # if self.y[0] < 0:
-        #     self.y[0] = self.SCREEN_SIZE
-
         self.draw()
 
 
@@ -81,17 +50,17 @@ class Apple(Base):
     def __init__(self, parent_screen):
         super().__init__()
         self.parent_screen = parent_screen
-        self.apple_img = pygame.image.load("resources/apple20.jpg")
-        self.x = random.randint(0, 25) * self.BLOCK_WIDTH
-        self.y = random.randint(0, 25) * self.BLOCK_WIDTH
+        self.apple_img = pygame.image.load("resources/apple.jpg")
+        self.x = random.randint(0, 10) * self.BLOCK_WIDTH
+        self.y = random.randint(0, 10) * self.BLOCK_WIDTH
 
     def draw(self):
         self.parent_screen.blit(self.apple_img, (self.x, self.y))
 
     def move(self, snake):
         while True:  # make sure new food is not getting created over snake body
-            x = random.randint(0, 25) * self.BLOCK_WIDTH
-            y = random.randint(0, 25) * self.BLOCK_WIDTH
+            x = random.randint(0, 10) * self.BLOCK_WIDTH
+            y = random.randint(0, 10) * self.BLOCK_WIDTH
             clean = True
             for i in range(0, snake.length):
                 if x == snake.x[i] and y == snake.y[i]:
@@ -108,10 +77,10 @@ class Game(Base):
         super().__init__()
         pygame.init()
         pygame.display.set_caption("Snake Game - AI - Deep Q Learning")
-        self.SCREEN_UPDATE = pygame.USEREVENT
-        pygame.time.set_timer(self.SCREEN_UPDATE, 1)
+        # self.SCREEN_UPDATE = pygame.USEREVENT
+        # pygame.time.set_timer(self.SCREEN_UPDATE, 1)
         self.surface = pygame.display.set_mode((self.SCREEN_SIZE, self.SCREEN_SIZE))
-        self.surface.fill((158, 59, 36))
+        self.surface.fill((58, 59, 36))
         self.snake = Snake(self.surface, 1)
         self.snake.draw()
         self.apple = Apple(self.surface)
@@ -124,34 +93,19 @@ class Game(Base):
         self.position_history = deque(maxlen=50)
         self.loop_detect_counter = 0
 
-        # pygame.mixer.init()
-        self.play_background_music()
-
     def eat(self, x1, y1, x2, y2):
         return x1 == x2 and y1 == y2
 
-    def play_background_music(self):
-        pass
-
-    #         pygame.mixer.music.load('resources/bg_music_1.mp3')
-    #         pygame.mixer.music.play(-1, 0)
-
-    def play_sound(self, sound_name):
-        pass
-        # if sound_name == "crash":
-
-    #             sound = pygame.mixer.Sound("resources/crash.mp3")
-    #         elif sound_name == 'ding':
-    #             sound = pygame.mixer.Sound("resources/ding.mp3")
-
-    #         pygame.mixer.Sound.play(sound)
+    def render_background(self):
+        bg = pygame.image.load("resources/background.jpg")
+        self.surface.blit(bg, (0, 0))
 
     def display_score(self):
         pass
         font = pygame.font.SysFont('arial', 20)
         msg = "Score: " + str(self.score)
         score = font.render(f"{msg}", True, (200, 200, 200))
-        self.surface.blit(score, (480, 10))
+        self.surface.blit(score, (380, 10))
 
     def display_message(self, message):
         font = pygame.font.SysFont('arial', 20)
@@ -171,30 +125,29 @@ class Game(Base):
         if is_head:
             for i in range(3, self.snake.length):
                 if point_x == self.snake.x[i] and point_y == self.snake.y[i]:
-                    self.play_sound('crash')
                     return True
         else:
             for i in range(0, self.snake.length):
                 if point_x == self.snake.x[i] and point_y == self.snake.y[i]:
-                    self.play_sound('crash')
                     return True
 
         if point_x > (self.SCREEN_SIZE - self.BLOCK_WIDTH) \
                 or point_y > (self.SCREEN_SIZE - self.BLOCK_WIDTH) \
                 or point_x < 0 \
                 or point_y < 0:
-            self.play_sound('crash')
             return True
 
         return False
 
     def play(self):
+        self.render_background()
         self.snake.move()
         self.apple.draw()
         self.display_score()
         self.display_message(self.message)
         self.iterations_without_rewards += 1
         self.reward = 0
+        # self.reward = -0.1  # Small negative reward for each step
 
         # time.sleep(0.15)
 
@@ -202,15 +155,14 @@ class Game(Base):
             self.snake.increase()
             self.apple.move(self.snake)
             self.score += 1
-            self.play_sound("ding")
             self.iterations_without_rewards = 0  # reset
             self.reward = 10
 
         if self.is_collision():
-            self.reward = -200
+            self.reward = -10
             self.game_over = True
 
-        # if self.iterations_without_rewards > 400 * self.snake.length:
+        # if self.iterations_without_rewards > 300 * self.snake.length:
         #     self.reward = -1
         #     self.game_over = True
         #     print("Iterations exceeded: Game Over")
@@ -238,50 +190,39 @@ class Game(Base):
         self.position_history.clear()
         self.loop_detect_counter = 0
 
-    def get_next_direction(self, action):
-        # [straight, right, left]
-        clockwise = ["right", "down", "left", "up"]
-        idx = clockwise.index(self.snake.direction)
-
-        # [1, 0, 0] - straight
-        # [0, 1, 0] - right
-        # [0, 0, 1] - left
-        if np.array_equal(action, [1, 0, 0]):
-            new_dir = clockwise[idx]  # no change
-        elif np.array_equal(action, [0, 1, 0]):
-            new_idx = (idx + 1) % 4
-            new_dir = clockwise[new_idx]  # turn right  r -> d -> l -> u
-        else:
-            new_idx = (idx - 1) % 4
-            new_dir = clockwise[new_idx]  # turn left r -> u -> l -> d
-
-        return new_dir
-
     def run_step(self, action):
 
-        dir = self.get_next_direction(action)
+        # action = [up, right, down, left]
+        direction = 'up'
 
-        if dir == "left":
-            if self.snake.direction != "right":
-                self.snake.move_left()
-        elif dir == "right":
-            if self.snake.direction != "left":
-                self.snake.move_right()
-        elif dir == "down":
-            if self.snake.direction != "up":
-                self.snake.move_down()
+        if action == 0:
+            direction = 'up'
+        elif action == 1:
+            direction = 'right'
+        elif action == 2:
+            direction = 'down'
+        elif action == 3:
+            direction = 'left'
+
+        if direction == "left":
+            # if self.snake.direction != "right":
+            self.snake.direction = "left"
+        elif direction == "right":
+            # if self.snake.direction != "left":
+            self.snake.direction = "right"
+        elif direction == "down":
+            # if self.snake.direction != "up":
+            self.snake.direction = "down"
         else:
-            if self.snake.direction != "down":
-                self.snake.move_up()
+            # if self.snake.direction != "down":
+            self.snake.direction = "up"
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-            if event.type == self.SCREEN_UPDATE:
-                self.play()
-                pygame.display.update()
-                pygame.time.Clock().tick(100)
-                break
+                sys.exit()
+
+        self.play()
+        pygame.display.update()
+        pygame.time.Clock().tick(200)
 
         return self.reward, self.game_over, self.score

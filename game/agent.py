@@ -7,14 +7,24 @@ import numpy as np
 from collections import deque
 
 from game.model import Linear_QNet, QTrainer
-from game.snake import Game
+# from game.snake import Game
+from game.snake_no_ui import Game
+from game.plot import plot
 
 MAX_MEMORY = 150_000
-LEARNING_STARTS = 30000
-BATCH_SIZE = 64
-LR = 0.0001
+BATCH_SIZE = 32
+LR = 0.001
 TARGET_UPDATE_INTERVAL = 4000
-BLOCK_WIDTH = 40
+
+# Universal device selection: CUDA, MPS, or CPU
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("cpu")
+else:
+    device = torch.device("cpu")
+
+print(f"Using device: {device}")
 
 
 class Agent:
@@ -25,20 +35,17 @@ class Agent:
         self.epsilon_min = 0.01
         self.gamma = 0.95  # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)
-        self.model = Linear_QNet(11, 512, 3)
-        self.target_model = Linear_QNet(11, 512, 3)
+        self.model = Linear_QNet(11, 64, 3)
+        # self.model = Linear_QNet(11, 64, 3).to(device)
+        self.target_model = Linear_QNet(11, 64, 3)
+        # self.target_model = Linear_QNet(11, 64, 3).to(device)
         self.trainer = QTrainer(self.model, self.target_model, LR, self.gamma)
         self.data_file = 'data.json'
         self.record = 0
-        self.avg = 0
-        self.total_eats = 0
         self.model_folder_path = './model'
         self.t_step = 0
+        self.LEARNING_STARTS_IN = 10000
         # model, trainer
-
-        self.random_count = 0
-        self.training_count = 0
-        self.total_decisions = 0
 
         pass
 
@@ -46,10 +53,10 @@ class Agent:
         head_x = game.snake.x[0]
         head_y = game.snake.y[0]
 
-        point_left = [(head_x - BLOCK_WIDTH), head_y]
-        point_right = [head_x + BLOCK_WIDTH, head_y]
-        point_up = [head_x, head_y - BLOCK_WIDTH]
-        point_down = [head_x, head_y + BLOCK_WIDTH]
+        point_left = [(head_x - game.BLOCK_WIDTH), head_y]
+        point_right = [head_x + game.BLOCK_WIDTH, head_y]
+        point_up = [head_x, head_y - game.BLOCK_WIDTH]
+        point_down = [head_x, head_y + game.BLOCK_WIDTH]
 
         dir_l = game.snake.direction == "left"
         dir_r = game.snake.direction == "right"
@@ -90,51 +97,42 @@ class Agent:
             game.apple.x > game.snake.x[0],  # food right
             game.apple.y < game.snake.y[0],  # food up
             game.apple.y > game.snake.x[0]  # food down
-
         ]
 
         return np.array(state, dtype=int)
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
-
-    def train_short_memory(self, state, action, reward, next_state, done):
-        # print("state", state, "action", action, "reward", reward, "next_state", next_state, "GO", done)
-        self.trainer.train_step(state, action, reward, next_state, done)
+        if self.LEARNING_STARTS_IN >= 0:
+            self.LEARNING_STARTS_IN -= 1
 
     def train_memory(self):
-        if len(self.memory) > LEARNING_STARTS:
+        if self.LEARNING_STARTS_IN <= 0 and len(self.memory) >= BATCH_SIZE:
             mini_sample = random.sample(self.memory, BATCH_SIZE)
-            print("learning starts")
-            # states, actions, rewards, next_states, dones = zip(*mini_sample)
-            # self.trainer.train_step(states, actions, rewards, next_states, dones)
+            if self.LEARNING_STARTS_IN == 0:
+                print("learning started")
             for state, action, reward, next_state, done in mini_sample:
                 self.trainer.train_step(state, action, reward, next_state, done)
 
     def get_action(self, state):
         # random moves: trade off exploration / exploitation
-        self.total_decisions += 1
         final_move = [0, 0, 0]
         if np.random.rand() <= self.epsilon:
-            self.random_count += 1
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
-            self.training_count += 1
+
             state0 = torch.tensor(state, dtype=torch.float)
+            # state0 = torch.tensor(state, dtype=torch.float).to(device)
             prediction = self.model(state0)
+            # Ensure the prediction is on the correct device
+            # prediction = prediction.to(device)
             move = torch.argmax(prediction).item()
             final_move[move] = 1
 
-        if self.total_decisions % 1000 == 0:
-            # print("random ", self.random_count)
-            # print("training ", self.training_count)
-            print("epsilon ", self.epsilon)
-            print(len(self.memory))
         return final_move
 
     def load(self, file_name='model.pth'):
-
         file_path = os.path.join(self.model_folder_path, file_name)
         if os.path.exists(file_path):
             self.model.load_state_dict(torch.load(file_path))
@@ -147,14 +145,12 @@ class Agent:
             os.makedirs(self.model_folder_path)
 
         complete_path = os.path.join(self.model_folder_path, file_name)
-        self.total_eats += score
-        self.avg = round((self.total_eats / n_games), 2)
-        data = {'episodes': n_games, 'record': record, 'avg': self.avg, 'epsilon': epsilon}
+        data = {'episodes': n_games, 'record': record, 'epsilon': epsilon,
+                'learning_starts_in': self.LEARNING_STARTS_IN}
         with open(complete_path, 'w') as file:
             json.dump(data, file, indent=4)
 
     def retrieve_data(self):
-        data = None
         model_data_path = os.path.join(self.model_folder_path, self.data_file)
         if os.path.exists(model_data_path):
             with open(model_data_path, 'r') as file:
@@ -163,15 +159,19 @@ class Agent:
             if data is not None:
                 self.n_games = data['episodes']
                 self.record = data['record']
-                self.avg = data['avg']
                 self.epsilon = data['epsilon']
-                self.total_eats = self.n_games * self.avg
+                self.LEARNING_STARTS_IN = data['learning_starts_in']
 
 
 def train():
     agent = Agent()
     agent.load()
     game = Game()
+    plot_scores = []
+    plot_mean_scores = []
+    total_score = 0
+    avg_last_10_episodes = 0
+    score_in_games = deque(maxlen=50)
 
     while True:
 
@@ -202,18 +202,36 @@ def train():
             # train long term memory (Experience Replay)
             game.reset()
             agent.n_games += 1
-            if len(agent.memory) > LEARNING_STARTS and agent.epsilon > agent.epsilon_min:
+            if agent.LEARNING_STARTS_IN <= 0 and agent.epsilon > agent.epsilon_min:
                 agent.epsilon *= agent.epsilon_decay
+
+            if agent.LEARNING_STARTS_IN == 0:
+                print("learning started, Episodes will reset")
+                agent.n_games = 0
 
             if score > agent.record:
                 agent.record = score
                 agent.model.save()
 
+            score_in_games.append(score)
+            avg_last_50_episodes = round(sum(score_in_games) / len(score_in_games), 1)
+
             message = "Episodes: " + str(agent.n_games) \
-                      + "    Record: " + str(agent.record)
-            # print(message)
+                      + "    Record: " + str(agent.record) + "    Avg: " + str(avg_last_50_episodes)
+            print(message)
             game.message = message
             agent.save_data(agent.n_games, agent.record, score, agent.epsilon)
+
+            # plot_scores.append(score)
+            # score_in_games.append(score)
+            # avg_last_10_episodes = sum(score_in_games)/len(score_in_games)
+            #
+            # plot_mean_scores.append(avg_last_10_episodes)
+            # plot(plot_scores, plot_mean_scores)
+
+            # for name, param in agent.model.named_parameters():
+            #     if param.grad is not None:
+            #         print(f"Gradient norm for {name}: {param.grad.norm()}")
 
 
 if __name__ == '__main__':

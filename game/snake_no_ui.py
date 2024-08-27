@@ -1,30 +1,22 @@
 import random
 from collections import deque
 import numpy as np
-import pygame
 
 
-class Base():
+class Base:
     def __init__(self):
         self.BLOCK_WIDTH = 20
         self.SCREEN_SIZE = 600
-        self.apple_location_multiplier=self.SCREEN_SIZE/self.BLOCK_WIDTH
+        self.apple_location_multiplier = self.SCREEN_SIZE / self.BLOCK_WIDTH
 
 
 class Snake(Base):
-    def __init__(self, parent_screen, length=1):
+    def __init__(self, length=1):
         super().__init__()
         self.length = length
-        self.parent_screen = parent_screen
-        self.block = pygame.image.load("resources/block20.jpg")
         self.x = [self.BLOCK_WIDTH * 2] * self.length
         self.y = [self.BLOCK_WIDTH * 2] * self.length
         self.direction = "right"
-
-    def draw(self):
-        self.parent_screen.fill((1, 50, 32))
-        for i in range(self.length):
-            self.parent_screen.blit(self.block, (self.x[i], self.y[i]))
 
     def increase(self):
         self.length += 1
@@ -62,31 +54,12 @@ class Snake(Base):
         if self.direction == "up":
             self.y[0] -= self.BLOCK_WIDTH
 
-        # if self.x[0] >= self.SCREEN_SIZE:
-        #     self.x[0] = 0
-        #
-        # if self.x[0] < 0:
-        #     self.x[0] = self.SCREEN_SIZE
-        #
-        # if self.y[0] >= self.SCREEN_SIZE:
-        #     self.y[0] = 0
-        #
-        # if self.y[0] < 0:
-        #     self.y[0] = self.SCREEN_SIZE
-
-        self.draw()
-
 
 class Apple(Base):
-    def __init__(self, parent_screen):
+    def __init__(self):
         super().__init__()
-        self.parent_screen = parent_screen
-        self.apple_img = pygame.image.load("resources/apple20.jpg")
         self.x = random.randint(0, 25) * self.BLOCK_WIDTH
         self.y = random.randint(0, 25) * self.BLOCK_WIDTH
-
-    def draw(self):
-        self.parent_screen.blit(self.apple_img, (self.x, self.y))
 
     def move(self, snake):
         while True:  # make sure new food is not getting created over snake body
@@ -106,16 +79,8 @@ class Apple(Base):
 class Game(Base):
     def __init__(self):
         super().__init__()
-        pygame.init()
-        pygame.display.set_caption("Snake Game - AI - Deep Q Learning")
-        self.SCREEN_UPDATE = pygame.USEREVENT
-        pygame.time.set_timer(self.SCREEN_UPDATE, 1)
-        self.surface = pygame.display.set_mode((self.SCREEN_SIZE, self.SCREEN_SIZE))
-        self.surface.fill((158, 59, 36))
-        self.snake = Snake(self.surface, 1)
-        self.snake.draw()
-        self.apple = Apple(self.surface)
-        self.apple.draw()
+        self.snake = Snake(1)
+        self.apple = Apple()
         self.score = 0
         self.reward = 0
         self.iterations_without_rewards = 0
@@ -124,39 +89,14 @@ class Game(Base):
         self.position_history = deque(maxlen=50)
         self.loop_detect_counter = 0
 
-        # pygame.mixer.init()
-        self.play_background_music()
-
     def eat(self, x1, y1, x2, y2):
         return x1 == x2 and y1 == y2
 
-    def play_background_music(self):
-        pass
-
-    #         pygame.mixer.music.load('resources/bg_music_1.mp3')
-    #         pygame.mixer.music.play(-1, 0)
-
-    def play_sound(self, sound_name):
-        pass
-        # if sound_name == "crash":
-
-    #             sound = pygame.mixer.Sound("resources/crash.mp3")
-    #         elif sound_name == 'ding':
-    #             sound = pygame.mixer.Sound("resources/ding.mp3")
-
-    #         pygame.mixer.Sound.play(sound)
-
     def display_score(self):
         pass
-        font = pygame.font.SysFont('arial', 20)
-        msg = "Score: " + str(self.score)
-        score = font.render(f"{msg}", True, (200, 200, 200))
-        self.surface.blit(score, (480, 10))
 
     def display_message(self, message):
-        font = pygame.font.SysFont('arial', 20)
-        score = font.render(f"{message}", True, (200, 200, 200))
-        self.surface.blit(score, (100, 10))
+        pass
 
     def is_collision(self, point=None):
         is_head = False
@@ -171,38 +111,31 @@ class Game(Base):
         if is_head:
             for i in range(3, self.snake.length):
                 if point_x == self.snake.x[i] and point_y == self.snake.y[i]:
-                    self.play_sound('crash')
                     return True
         else:
             for i in range(0, self.snake.length):
                 if point_x == self.snake.x[i] and point_y == self.snake.y[i]:
-                    self.play_sound('crash')
                     return True
 
         if point_x > (self.SCREEN_SIZE - self.BLOCK_WIDTH) \
                 or point_y > (self.SCREEN_SIZE - self.BLOCK_WIDTH) \
                 or point_x < 0 \
                 or point_y < 0:
-            self.play_sound('crash')
             return True
 
         return False
 
     def play(self):
         self.snake.move()
-        self.apple.draw()
         self.display_score()
         self.display_message(self.message)
         self.iterations_without_rewards += 1
         self.reward = 0
 
-        # time.sleep(0.15)
-
         if self.eat(self.snake.x[0], self.snake.y[0], self.apple.x, self.apple.y):
             self.snake.increase()
             self.apple.move(self.snake)
             self.score += 1
-            self.play_sound("ding")
             self.iterations_without_rewards = 0  # reset
             self.reward = 10
 
@@ -225,13 +158,9 @@ class Game(Base):
         #         print("loop detected")
         # self.position_history.append((self.snake.x[0], self.snake.y[0]))
 
-    def render_background(self):
-        bg = pygame.image.load("resources/background.jpg")
-        self.surface.blit(bg, (0, 0))
-
     def reset(self):
-        self.snake = Snake(self.surface)
-        self.apple = Apple(self.surface)
+        self.snake = Snake()
+        self.apple = Apple()
         self.score = 0
         self.game_over = False
         self.iterations_without_rewards = 0
@@ -274,14 +203,6 @@ class Game(Base):
             if self.snake.direction != "down":
                 self.snake.move_up()
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-            if event.type == self.SCREEN_UPDATE:
-                self.play()
-                pygame.display.update()
-                pygame.time.Clock().tick(100)
-                break
+        self.play()
 
         return self.reward, self.game_over, self.score
